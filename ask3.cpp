@@ -26,7 +26,9 @@ long double netForce(Planet planet, BHTree tree){
 
 
 
-
+void computeForces(){
+    return;
+}
 
 
 
@@ -61,7 +63,7 @@ void barnes_hut(){
 // ********************** MAIN ************************
 int main(int argc, char* argv[]) {
     if(argc <2){
-        std::cerr<<"Usage: ./a.out"<<argv[0]<< "<filename> <iterations_num>"<<std::endl;
+        std::cerr<<"Usage: ./a.out"<<argv[0]<< "<filename> <iterations_num> <thread_num>"<<std::endl;
         return 1;
     }
     std::ifstream file(argv[1]);
@@ -70,6 +72,8 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    long long iterations = argv[2]; // 'seconds' the simmulation will run
+    int thread_num = argv[3];
     long double numPlanets;
     long double universeSize;
     long double i;
@@ -91,6 +95,15 @@ int main(int argc, char* argv[]) {
                   << "Position: (" << planet.getX() << ", " << planet.getY() << "), "
                   << "Velocity: (" << planet.getVelocityX() << ", " << planet.getVelocityY() << "), "
                   << "Mass: " << planet.getMass() << std::endl;
+    }
+
+    // its gonna create the universe along with the bhtree
+    // maybe change the name to universe again cause i dont like the square
+    
+    for( i=0; i<iterations; i++){
+        std::cout<<"Creating tree: " << i << std::endl;
+        Square universe = Square(&planets,CoordinatesXY(0,0)); // hide all the complexity
+        
     }
 
     
