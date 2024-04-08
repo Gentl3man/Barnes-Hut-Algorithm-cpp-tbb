@@ -88,6 +88,14 @@ public:
     std::vector<long long int> planetIndexes; // ideally pointer
     long long level;
     Square *nw, *ne, *sw, *se,*parent;
+
+    CoordinatesXY calculate_centerMass(Square *sq1, Square *sq2){
+        long double x,y;
+        long double mass = sq1->mass + sq2->mass;
+        x=(sq1->xy.x*sq1->mass + sq2->xy.x*sq2->mass)/mass;
+        x=(sq1->xy.y*sq1->mass + sq2->xy.y*sq2->mass)/mass;
+        return CoordinatesXY(x,y);
+    }
     
     void buildTree(){
         this->mass=0;
@@ -121,9 +129,20 @@ public:
             }
 
             nw = new Square(planets,CoordinatesXY(-xy.x/2 , xy.y/2) ,nwPlanets   ,level+1 ,&this);
-            ne = new Square(planets,CoordinatesXY(xy.x/2 , xy.y/2)  ,nePlanets   ,level+1 ,&this);            
+            mass +=nw->mass;
+            centerMass = this.calculate_centerMass(this,nw); // 4 fores giati dinetai o typos mono gia 2 swmata sthn ekfwnhsh....
+
+            ne = new Square(planets,CoordinatesXY(xy.x/2 , xy.y/2)  ,nePlanets   ,level+1 ,&this);
+            mass +=ne->mass;
+            centerMass = this.calculate_centerMass(this,ne);
+
             sw = new Square(planets,CoordinatesXY(-xy.x/2 , -xy.y/2),swPlanets   ,level+1 ,&this);
+            mass +=sw->mass;
+            centerMass = this.calculate_centerMass(this,sw);
+
             se = new Square(planets,CoordinatesXY(xy.x/2 , -xy.y/2) ,sePlanets   ,level+1 ,&this);
+            mass +=se->mass;
+            centerMass = this.calculate_centerMass(this,se);
 
         }
     }
@@ -167,10 +186,6 @@ CoordinatesXY newPosition(Planet p, CoordinatesXY xy);
 // into 4, untill there are 0 or 1 bodies left
 void barnes_hut();
 
-/**
- * Calculate the center mass of 2 planets
-*/
-CoordinatesXY calculate_centerMass(Planet p1, Planet p2);
 
 /**
  * Calculate the gravity
