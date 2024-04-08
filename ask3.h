@@ -6,6 +6,8 @@
 #include <vector>
 #include <time.h>
 #include "tbb/tbb.h"
+#include <math.h>
+
 
 
 
@@ -26,6 +28,7 @@ class CoordinatesXY{
         return (x == other.x) && (y == other.y);
     }
 };
+class Square;
 
 class Planet {
 private:
@@ -35,7 +38,7 @@ private:
     long double mass;
     int exploded;
     std::string name;
-
+    Square& square; // square the leaf it belongs
 public:
     // Constructor
     Planet(long double x, long double y, long double velocityX, long double velocityY, long double mass, const std::string& name) 
@@ -46,21 +49,22 @@ public:
 
     // Getter functions
     CoordinatesXY getXY() { return xy; }
-    long long double getX() { return xy.x; }
-    long long double getY() { return xy.y; }
+    long double getX() { return xy.x; }
+    long double getY() { return xy.y; }
     long double getVelocityX() { return velocityX; }
     long double getVelocityY() { return velocityY; }
     long double getMass() { return mass; }
     int hasExploed() { return exploded; }
     std::string getName() { return name; }
+    Square& getSquare() { return square;}
 
     // Setter functions
-    void setXY(CoordinatesXY xy) {this.xy = xy;}
+    void setXY(CoordinatesXY xy) { this->xy = xy; }
     void setVelocityX(long double velocityX) { this->velocityX = velocityX; }
     void setVelocityY(long double velocityY) { this->velocityY = velocityY; }
     void setMass(long double mass) { this->mass = mass; }
     void setName(const std::string& name) { this->name = name; } // wonder if this can cause a bug
-
+    // void setSquare(Square *square) { this->square = square; }
     // Other
     void initiateExplostion(){
         // extreme case
@@ -73,66 +77,38 @@ public:
 
 };
 
-class BHNode{
-    public:
-        // Planet planet;
-        std::vector<Planet> planets;
-        // Note: can be empty
-        BHNode *nw, *ne, *sw, *se; // Pointers to the four quadrants (other planets)
-
-        BHNode(Planet planet):planet(planet),nw(NULL),ne(NULL),sw(NULL),se(NULL),exploded(0){}
-        ~BHNode() {
-            delete nw;
-            delete ne;
-            delete sw;
-            delete se;
-        }
-};
-
-class BHTree{
-    public:
-    BHNode* root;
-
-    BHTree(BHNode root):root(root){}
-    ~BHTree(){
-        delete root;
-    }
-
-    int BHTree_insert(Planet planet){
-        BHNode node = new BHNode(planet);
-        if(!root){
-            root = node;
-            return;
-        }
-
-        return 1;
-    }
-    int BHTree_length(){
-        return 1;
-    }
-};
-
-
 class Square // universe
 {
 public:
     long long int id;
     CoordinatesXY xy;
+    CoordinatesXY centerMass;
+    long double mass;
     std::vector<Planet>& planets;
     std::vector<long long int> planetIndexes; // ideally pointer
-    Square *nw, *ne, *sw, *se;
+    long long level;
+    Square *nw, *ne, *sw, *se,*parent;
     
     void buildTree(){
-        if(planetIndexes <2)return;
-
+        this->mass=0;
+        if(planetIndexes.size() <2){
+            // assign the planet the square it belongs, aka the leaf
+            if(planetIndexes.size() == 1){
+                // (*planets)[planetIndexes[0]].setSquare(this);
+                mass=(planets)[planetIndexes[0]];
+            }
+            centerMass = xy;
+            return;
+        }
         std::vector<long long int> nwPlanets, nePlanets, swPlanets, sePlanets;
         for (size_t i = 0; i < planetIndexes.size(); i++) {
-            const Planet planet = (*planets)[i]; 
+            const Planet planet = planets[i]; 
 
             if (planet.getXY() == xy) {
                 planet.initiateExplostion();
                 continue;
             }
+            if(planet.hasExploed())continue;
 
             if (planet.getX() < xy.x && planet.getY() > xy.y) {
                 nwPlanets.push_back(i); 
@@ -144,22 +120,23 @@ public:
                 sePlanets.push_back(i); 
             }
 
-            nw = new Square(planets,CoordinatesXY(-xy.x/2 , xy.y/2),nwPlanets);
-            ne = new Square(planets,CoordinatesXY(xy.x/2 , xy.y/2),nePlanets);            
-            sw = new Square(planets,CoordinatesXY(-xy.x/2 , -xy.y/2),swPlanets);
-            se = new Square(planets,CoordinatesXY(xy.x/2 , -xy.y/2),sePlanets);
-            
+            nw = new Square(planets,CoordinatesXY(-xy.x/2 , xy.y/2) ,nwPlanets   ,level+1 ,&this);
+            ne = new Square(planets,CoordinatesXY(xy.x/2 , xy.y/2)  ,nePlanets   ,level+1 ,&this);            
+            sw = new Square(planets,CoordinatesXY(-xy.x/2 , -xy.y/2),swPlanets   ,level+1 ,&this);
+            se = new Square(planets,CoordinatesXY(xy.x/2 , -xy.y/2) ,sePlanets   ,level+1 ,&this);
+
         }
     }
     
-    Square( std::vector<Planet>& planets,CoordinatesXY xy):planets(planets),xy(xy){
+    Square( std::vector<Planet>& planets,CoordinatesXY xy):planets(planets),xy(xy),level(0),parent(NULL){
         int i;
         for (i = 0; i < planets->size(); i++){
             planetIndexes.push_back(i);
         }
         buildTree();
     }
-    Square( std::vector<Planet>& planets,CoordinatesXY xy,std::vector<long long int> planetIndexes):planets(planets),xy(xy),planetIndexes(planetIndexes){
+    Square( std::vector<Planet>& planets,CoordinatesXY xy,std::vector<long long int> planetIndexes,long long int level,Square *parent)
+        :planets(planets),xy(xy),planetIndexes(planetIndexes),level(level),parent(parent){
         buildTree();
     }
 

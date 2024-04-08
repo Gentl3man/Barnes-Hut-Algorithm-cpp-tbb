@@ -15,13 +15,23 @@ long double calculate_gravity(Planet p1, Planet p2){
     return gravity;
 }
 
-long double netForce(Planet planet, BHTree tree){
+void netForce(Planet &planet, Square &node){
+    if(node.planetIndexes.size()<1)
+        return; // fail condition
     long double netforce =1;
+    Planet* squarePlanet;
     // start from root
+    double dx,dy;
+
+    double dx = planet.getX() - node.xy.x;
+    double dy = planet.getY() = node.xy.y;
+    double distance = sqrt(dx*dx +dy*dy);
+    
+
 
     // if distance bettween
 
-    return netforce;
+    return ;
 }
 
 
