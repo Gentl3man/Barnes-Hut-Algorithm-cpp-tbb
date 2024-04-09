@@ -82,6 +82,7 @@ class Square // universe
 public:
     long long int id;
     CoordinatesXY xy;
+    long double  size; //TODO add it
     CoordinatesXY centerMass;
     long double mass;
     std::vector<Planet>& planets;
@@ -92,20 +93,21 @@ public:
     CoordinatesXY calculate_centerMass(Square *sq1, Square *sq2){
         long double x,y;
         long double mass = sq1->mass + sq2->mass;
-        x=(sq1->xy.x*sq1->mass + sq2->xy.x*sq2->mass)/mass;
-        x=(sq1->xy.y*sq1->mass + sq2->xy.y*sq2->mass)/mass;
+        x=(sq1->centerMass.x*sq1->mass + sq2->centerMass.x*sq2->mass)/mass;
+        x=(sq1->centerMass.y*sq1->mass + sq2->centerMass.y*sq2->mass)/mass;
         return CoordinatesXY(x,y);
     }
     
     void buildTree(){
         this->mass=0;
+        centerMass = xy;
+        
         if(planetIndexes.size() <2){
             // assign the planet the square it belongs, aka the leaf
             if(planetIndexes.size() == 1){
-                // (*planets)[planetIndexes[0]].setSquare(this);
+                planets[planetIndexes[0]].setSquare(this);
                 mass=(planets)[planetIndexes[0]];
             }
-            centerMass = xy;
             return;
         }
         std::vector<long long int> nwPlanets, nePlanets, swPlanets, sePlanets;
@@ -128,19 +130,19 @@ public:
                 sePlanets.push_back(i); 
             }
 
-            nw = new Square(planets,CoordinatesXY(-xy.x/2 , xy.y/2) ,nwPlanets   ,level+1 ,&this);
+            nw = new Square(planets,CoordinatesXY(-xy.x/2 , xy.y/2) ,nwPlanets   ,level+1 ,this);
             mass +=nw->mass;
             centerMass = this.calculate_centerMass(this,nw); // 4 fores giati dinetai o typos mono gia 2 swmata sthn ekfwnhsh....
 
-            ne = new Square(planets,CoordinatesXY(xy.x/2 , xy.y/2)  ,nePlanets   ,level+1 ,&this);
+            ne = new Square(planets,CoordinatesXY(xy.x/2 , xy.y/2)  ,nePlanets   ,level+1 ,this);
             mass +=ne->mass;
             centerMass = this.calculate_centerMass(this,ne);
 
-            sw = new Square(planets,CoordinatesXY(-xy.x/2 , -xy.y/2),swPlanets   ,level+1 ,&this);
+            sw = new Square(planets,CoordinatesXY(-xy.x/2 , -xy.y/2),swPlanets   ,level+1 ,this);
             mass +=sw->mass;
             centerMass = this.calculate_centerMass(this,sw);
 
-            se = new Square(planets,CoordinatesXY(xy.x/2 , -xy.y/2) ,sePlanets   ,level+1 ,&this);
+            se = new Square(planets,CoordinatesXY(xy.x/2 , -xy.y/2) ,sePlanets   ,level+1 ,this);
             mass +=se->mass;
             centerMass = this.calculate_centerMass(this,se);
 
