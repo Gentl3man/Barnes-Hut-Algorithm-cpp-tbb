@@ -15,7 +15,9 @@ long double calculate_gravity(long double m1, long double m2, long double distan
 }
 long double calculate_distance(CoordinatesXY xy1, CoordinatesXY xy2)
 {
-    return 1;
+    long double dx = xy2.x - xy1.x;
+    long double dy = xy2.y - xy1.y; 
+    return sqrt(dx * dx + dy * dy);
 }
 bool node_contains_planet(Planet planet, Square *root)
 {
@@ -77,12 +79,14 @@ int main(int argc, char *argv[])
     int thread_num = std::stoll(argv[3]);
     long double numPlanets;
     long double universeSize;
+    long double R; // aktina tou sympantos
     long double i;
 
     long double x, y, velocityX, velocityY, mass;
     std::string name;
 
-    file >> numPlanets >> universeSize;
+    file >> numPlanets >> R;
+    universeSize = (R*2);
     std::cout << "Number of planets: " << numPlanets << std::endl;
     std::cout << "Universe size: " << universeSize << std::endl;
     std::vector<Planet> planets;
@@ -106,7 +110,7 @@ int main(int argc, char *argv[])
     {
         std::cout << "Creating tree: " << i << std::endl;
         Square universe = Square(&planets, CoordinatesXY(0, 0), universeSize); // hide all the complexity
-
+        std::cout << "Before 1 paralel";
         parallel_for(
             tbb::blocked_range<int>(0, planets.size()),
             [&](const tbb::blocked_range<int> &range) -> void
@@ -121,6 +125,7 @@ int main(int argc, char *argv[])
                 }
             });
 
+        std::cout << "Before 2 paralel";
 
         parallel_for(
             tbb::blocked_range<int>(0, planets.size()),
@@ -132,6 +137,8 @@ int main(int argc, char *argv[])
                     planets[j].gotoNextPosition();
                 }
             });
+        
+        std::cout << "Before 3 paralel";
         
         std::cout << "Iteration: " << i << std::endl;
         for (auto &planet : planets)

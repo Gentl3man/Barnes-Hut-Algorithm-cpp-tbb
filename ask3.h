@@ -5,7 +5,7 @@
 #include <string>
 #include <vector>
 #include <time.h>
-#include <math.h>
+#include <cmath>
 #include <tbb/parallel_for.h>
 
 struct timespec start;
@@ -55,13 +55,12 @@ private:
     std::string name;
     Square *square = nullptr; // square the leaf it belongs
 public:
-    
     // Constructor
     Planet(CoordinatesXY xy, long double velocityX, long double velocityY, long double mass, const std::string &name)
-        : xy(xy), velocityX(velocityX), velocityY(velocityY), mass(mass), name(name) {}
+        : xy(xy), velocityX(velocityX), velocityY(velocityY), mass(mass), name(name), exploded(false) {}
 
     // Default constructor
-    Planet() : xy(CoordinatesXY(0,0)), velocityX(0), velocityY(0), mass(0), name("") {}
+    Planet() : xy(CoordinatesXY(0, 0)), velocityX(0), velocityY(0), mass(0), name(""), exploded(false) {}
 
     // operator overloads
     bool operator==(const Planet &other)
@@ -109,7 +108,7 @@ public:
 class Square // universe
 {
 public:
-    long double size;
+    long double size; // R*2
     long long int id;
     CoordinatesXY xy;
     CoordinatesXY centerMass;
@@ -121,18 +120,35 @@ public:
 
     CoordinatesXY calculate_centerMass(Square *sq1, Square *sq2)
     {
-        long double x, y;
+        std::cout<<"center mass\n";
+        long double x = 0, y = 0;
         long double mass = sq1->mass + sq2->mass;
+        // std::cout<<"VRHKE MAZA" << mass<< "\n";
+        if (mass <= 0)
+        {
+            return sq1->centerMass;
+        }
         x = (sq1->centerMass.x * sq1->mass + sq2->centerMass.x * sq2->mass) / mass;
-        x = (sq1->centerMass.y * sq1->mass + sq2->centerMass.y * sq2->mass) / mass;
+        y = (sq1->centerMass.y * sq1->mass + sq2->centerMass.y * sq2->mass) / mass;
+        std::cout<<"center mass CALCULATED\n";
+
         return CoordinatesXY(x, y);
     }
-
+    bool planet_in_square(CoordinatesXY planetXY, CoordinatesXY squareXY, long double squareSize)
+    {
+        return  planetXY.x <= squareXY.x + squareSize / 2.0   &&
+                planetXY.x >= squareXY.x - squareSize / 2.0   &&
+                planetXY.y <= squareXY.y + squareSize / 2.0   &&
+                planetXY.y >= squareXY.y - squareSize / 2.0
+        ;
+    }
     void buildTree()
     {
-        this->mass = 0;
+        mass = 0;
         centerMass = xy;
+        std::cout << "Square: (" << xy.x << " , " << xy.y << ")\n";
 
+        std::cout << "Total planet indexes: " << planetIndexes.size() << "\n";
         if (planetIndexes.size() < 2)
         {
             // assign the planet the square it belongs, aka the leaf
@@ -144,64 +160,75 @@ public:
             return;
         }
         std::vector<long long int> nwPlanets, nePlanets, swPlanets, sePlanets;
-        for (size_t i = 0; i < planetIndexes.size(); i++)
+        CoordinatesXY nwXY, neXY, swXY, seXY;
+        nwXY = CoordinatesXY(-size / 4.0 + xy.x,  size / 4.0 + xy.y);
+        neXY = CoordinatesXY( size / 4.0 + xy.x,  size / 4.0 + xy.y);
+        swXY = CoordinatesXY(-size / 4.0 + xy.x, -size / 4.0 + xy.y);
+        seXY = CoordinatesXY( size / 4.0 + xy.x, -size / 4.0 + xy.y);
+        for (long long int index : planetIndexes)
         {
-            if ((*planets)[i].getXY() == xy)
+            std::cout << "Planmet index (" << (*planets)[index].getX() << " , " << (*planets)[index].getY() << ") Square: (" << xy.x << " , " << xy.y << ")\n";
+            
+            if      (planet_in_square((*planets)[index].getXY(), nwXY, size / 2.0))
             {
-                (*planets)[i].initiateExplostion();
-                continue;
+                nwPlanets.push_back(index);
             }
-            if ((*planets)[i].hasExploed())
-                continue;
-
-            if ((*planets)[i].getX() < xy.x && (*planets)[i].getY() > xy.y)
+            else if (planet_in_square((*planets)[index].getXY(), neXY, size / 2.0))
             {
-                nwPlanets.push_back(i);
+                nePlanets.push_back(index);
             }
-            else if ((*planets)[i].getX() > xy.x && (*planets)[i].getY() > xy.y)
+            else if (planet_in_square((*planets)[index].getXY(), swXY, size / 2.0))
             {
-                nePlanets.push_back(i);
-            }
-            else if ((*planets)[i].getX() < xy.x && (*planets)[i].getY() < xy.y)
-            {
-                swPlanets.push_back(i);
+                swPlanets.push_back(index);
             }
             else
             {
-                sePlanets.push_back(i);
+                sePlanets.push_back(index);
             }
-
-            nw = new Square(planets, CoordinatesXY(-xy.x / 2, xy.y / 2), size / 4, nwPlanets, level + 1, this);
-            mass += nw->mass;
-            centerMass = this->calculate_centerMass(this, nw); // 4 fores giati dinetai o typos mono gia 2 swmata sthn ekfwnhsh....
-
-            ne = new Square(planets, CoordinatesXY(xy.x / 2, xy.y / 2), size / 4, nePlanets, level + 1, this);
-            mass += ne->mass;
-            centerMass = this->calculate_centerMass(this, ne);
-
-            sw = new Square(planets, CoordinatesXY(-xy.x / 2, -xy.y / 2), size / 4, swPlanets, level + 1, this);
-            mass += sw->mass;
-            centerMass = this->calculate_centerMass(this, sw);
-
-            se = new Square(planets, CoordinatesXY(xy.x / 2, -xy.y / 2), size / 4, sePlanets, level + 1, this);
-            mass += se->mass;
-            centerMass = this->calculate_centerMass(this, se);
         }
+
+        // std::cout<<"size: "<<size<<" side: " << squareSide <<std::endl;
+        nw = new Square(planets, nwXY, size / 2.0, &nwPlanets, level + 1, this);
+        centerMass = this->calculate_centerMass(this, nw); // 4 fores giati dinetai o typos mono gia 2 swmata sthn ekfwnhsh....
+        mass += nw->mass;
+
+        ne = new Square(planets, neXY, size / 2.0, &nePlanets, level + 1, this);
+        centerMass = this->calculate_centerMass(this, ne);
+        mass += ne->mass;
+
+        sw = new Square(planets, swXY, size / 2.0, &swPlanets, level + 1, this);
+        centerMass = this->calculate_centerMass(this, sw);
+        mass += sw->mass;
+
+        se = new Square(planets, seXY, size / 2.0, &sePlanets, level + 1, this);
+        centerMass = this->calculate_centerMass(this, se);
+        mass += se->mass;
+
+        std::cout << "Center mass for Square: "
+                  << ": (" << centerMass.x << " , " << centerMass.y << ") " << std::endl;
+        return;
     }
 
-    Square(std::vector<Planet> *planets, CoordinatesXY xy, long double size) : planets(planets), xy(xy), size(size), level(0), parent(NULL)
+    Square(std::vector<Planet> *planets, CoordinatesXY xy, long double size) : planets(planets), xy(xy), size(size), level(0), parent(NULL), centerMass(CoordinatesXY(0, 0)), mass(0)
     {
         int i;
         for (i = 0; i < planets->size(); i++)
         {
             planetIndexes.push_back(i);
         }
+        std::cout << "Total planets: " << planetIndexes.size() << "\n";
+        std::cout << "Size: " << this->size << "\n";
         buildTree();
     }
-    Square(std::vector<Planet> *planets, CoordinatesXY xy, long double size, std::vector<long long int> planetIndexes, long long int level, Square *parent)
-        : planets(planets), xy(xy), size(size), planetIndexes(planetIndexes), level(level), parent(parent)
+    Square(std::vector<Planet> *planets, CoordinatesXY xy, long double size, std::vector<long long int> *planetIndexes, long long int level, Square *parent)
+        : planets(planets), xy(xy), size(size), level(level), parent(parent), centerMass(CoordinatesXY(0, 0)), mass(0)
     {
-        this->id = 0;
+        for (int i = 0; i < planetIndexes->size(); i++)
+        {
+            // std::cout<<"mpainw\n";
+            this->planetIndexes.push_back((*planetIndexes)[i]);
+        }
+        std::cout << "Square (" << xy.x << " , " << xy.y << ") with size: " << size << " and level: " << level << " Planets: " << this->planetIndexes.size() << "\n";
         buildTree();
     }
 };
