@@ -16,14 +16,14 @@ long double calculate_gravity(long double m1, long double m2, long double distan
 long double calculate_distance(CoordinatesXY xy1, CoordinatesXY xy2)
 {
     long double dx = xy2.x - xy1.x;
-    long double dy = xy2.y - xy1.y; 
+    long double dy = xy2.y - xy1.y;
     return sqrt(dx * dx + dy * dy);
 }
 bool node_contains_planet(Planet planet, Square *root)
 {
     int i;
     // Could be a better way to do this with parents
-    for (auto &index : root->planetIndexes)
+    for (auto index : root->planetIndexes)
     {
         if (planet == root->planets->at(index))
             return 1;
@@ -38,7 +38,7 @@ NetForce netForce(Planet planet, Square *node)
     long double distance = calculate_distance(planet.getXY(), node->xy);
     long double gravity;
     NetForce ret = NetForce(0, 0);
-    bool isSufficientlyFar = distance > planet.getSquare()->size / 4; // tetragwno ara pleura size/4
+    bool isSufficientlyFar = distance > planet.getSquare()->size / 2.0; // tetragwno ara pleura size/4
     bool hasPlanet = node_contains_planet(planet, node);
     if (isSufficientlyFar && !hasPlanet)
     {
@@ -51,10 +51,14 @@ NetForce netForce(Planet planet, Square *node)
     else if (!isSufficientlyFar || hasPlanet)
     {
         // recursivly calculate gravity the children exert at the body
-        ret += netForce(planet, node->ne);
-        ret += netForce(planet, node->nw);
-        ret += netForce(planet, node->se);
-        ret += netForce(planet, node->sw);
+        if (node->ne)
+            ret += netForce(planet, node->ne);
+        if (node->nw)
+            ret += netForce(planet, node->nw);
+        if (node->se)
+            ret += netForce(planet, node->se);
+        if (node->sw)
+            ret += netForce(planet, node->sw);
         // sunhstamenh twn  dynamewn einai to a8roisma twn dunamewn
     }
     return ret;
@@ -65,7 +69,7 @@ int main(int argc, char *argv[])
 {
     if (argc < 2)
     {
-        std::cerr << "Usage: ./a.out" << argv[0] << "<filename> <iterations_num> <thread_num>" << std::endl;
+        std::cerr << "Usage: " << argv[0] << "<filename> <iterations_num> <thread_num>" << std::endl;
         return 1;
     }
     std::ifstream file(argv[1]);
@@ -81,14 +85,12 @@ int main(int argc, char *argv[])
     long double universeSize;
     long double R; // aktina tou sympantos
     long double i;
-
     long double x, y, velocityX, velocityY, mass;
     std::string name;
-
     file >> numPlanets >> R;
-    universeSize = (R*2);
-    std::cout << "Number of planets: " << numPlanets << std::endl;
-    std::cout << "Universe size: " << universeSize << std::endl;
+    universeSize = (R * 2);
+    // std::cout << "Number of planets: " << numPlanets << std::endl;
+    // std::cout << "Universe size: " << universeSize << std::endl;
     std::vector<Planet> planets;
     for (int i = 0; i < numPlanets; i++)
     {
@@ -96,60 +98,71 @@ int main(int argc, char *argv[])
         Planet planet(CoordinatesXY(x, y), velocityX, velocityY, mass, name);
         planets.push_back(planet);
     }
-    for (auto &planet : planets)
-    {
-        std::cout << "Name: " << planet.getName() << ", "
-                  << "Position: (" << planet.getX() << ", " << planet.getY() << "), "
-                  << "Velocity: (" << planet.getVelocityX() << ", " << planet.getVelocityY() << "), "
-                  << "Mass: " << planet.getMass() << std::endl;
-    }
-    // return 0;
-    // its gonna create the universe along with the bhtree
-    // maybe change the name to universe again cause i dont like the square
+    // for (auto &planet : planets)
+    // {
+    //     std::cout << "Name: " << planet.getName() << ", "
+    //               << "Position: (" << planet.getX() << ", " << planet.getY() << "), "
+    //               << "Velocity: (" << planet.getVelocityX() << ", " << planet.getVelocityY() << "), "
+    //               << "Mass: " << planet.getMass() << std::endl;
+    // }
+
+    tbb::task_arena arena(thread_num);
+    elapsed = 0;
+    long double iterationEllapsed = 0;
+
     for (i = 0; i < iterations; i++)
     {
-        std::cout << "Creating tree: " << i << std::endl;
+        // std::cout << "Creating tree: " << i << std::endl;
         Square universe = Square(&planets, CoordinatesXY(0, 0), universeSize); // hide all the complexity
-        std::cout << "Before 1 paralel";
-        parallel_for(
-            tbb::blocked_range<int>(0, planets.size()),
-            [&](const tbb::blocked_range<int> &range) -> void
-            {
-                int j;
-                NetForce force;
-                for (j = range.begin(); j != range.end(); j++)
-                {
-                    force = netForce(planets[j], &universe);
-                    planets[j].setVelocityX(force.fx / planets[j].getMass());
-                    planets[j].setVelocityY(force.fy / planets[j].getMass());
-                }
-            });
-
-        std::cout << "Before 2 paralel";
-
-        parallel_for(
-            tbb::blocked_range<int>(0, planets.size()),
-            [&](const tbb::blocked_range<int> &range) -> void
-            {
-                int j;
-                for (j = range.begin(); j != range.end(); j++)
-                {
-                    planets[j].gotoNextPosition();
-                }
-            });
-        
-        std::cout << "Before 3 paralel";
-        
-        std::cout << "Iteration: " << i << std::endl;
-        for (auto &planet : planets)
-        {
-            std::cout << "Name: " << planet.getName() << ", "
-                    << "Position: (" << planet.getX() << ", " << planet.getY() << "), "
-                    << "Velocity: (" << planet.getVelocityX() << ", " << planet.getVelocityY() << "), "
-                    << "Mass: " << planet.getMass() << std::endl;
-        }
-        
+        clock_gettime(CLOCK_MONOTONIC, &start);
+        arena.execute([&]
+                      { tbb::parallel_for(
+                            tbb::blocked_range<int>(0, planets.size()),
+                            [&](const tbb::blocked_range<int> &range) -> void
+                            {
+                                int j;
+                                NetForce force;
+                                for (j = range.begin(); j != range.end(); j++)
+                                {
+                                    // std::cout << "j: " << j << "\n";
+                                    force = netForce(planets[j], &universe);
+                                    planets[j].setVelocityX(force.fx / planets[j].getMass());
+                                    planets[j].setVelocityY(force.fy / planets[j].getMass());
+                                    // std::cout << "Force: " << force.fy << " \n";
+                                }
+                            }); });
+        arena.execute([&]
+                      { tbb::parallel_for(
+                            tbb::blocked_range<int>(0, planets.size()),
+                            [&](const tbb::blocked_range<int> &range) -> void
+                            {
+                                int j;
+                                for (j = range.begin(); j != range.end(); j++)
+                                {
+                                    // std::cout<<"moving planet: "<< j << " to different position \n";
+                                    planets[j].gotoNextPosition();
+                                }
+                            }); });
+        clock_gettime(CLOCK_MONOTONIC, &end);
+        elapsed += (end.tv_sec - start.tv_sec) + (end.tv_nsec - start.tv_nsec) / 1000000000.0;
+        // for (auto &planet : planets)
+        // {
+        //     std::cout << "Name: " << planet.getName() << ", "
+        //               << "Position: (" << planet.getX() << ", " << planet.getY() << "), "
+        //               << "Velocity: (" << planet.getVelocityX() << ", " << planet.getVelocityY() << "), "
+        //               << "Mass: " << planet.getMass() << std::endl;
+        // }
     }
 
+    std::ofstream output;
+    output.open("output.txt");
+    output << numPlanets << std::endl;
+    output << universeSize << std::endl;
+    for (auto &planet : planets)
+    {
+        output << planet.getX() << " " << planet.getY() << " " << planet.getVelocityX() << " " << planet.getVelocityY() << " " << planet.getMass() << " " << planet.getName() << std :: endl;
+    }
+    output.close();
+    std::cout << "NetForce time calculation " << elapsed << "\n";
     return 0;
 }

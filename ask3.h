@@ -7,11 +7,12 @@
 #include <time.h>
 #include <cmath>
 #include <tbb/parallel_for.h>
-
+#include <tbb/task_arena.h>
+#include <tbb/global_control.h>
+#include <cassert>
 struct timespec start;
-double elapsed;
-const double theta = 0.5;
-int N;
+long double elapsed;
+struct timespec end;
 
 class CoordinatesXY
 {
@@ -90,13 +91,14 @@ public:
     void initiateExplostion()
     {
         // extreme case
-        std::cout << "Planet with coordinates (" << xy.x << " , " << xy.y << ") has exploded." << std::endl;
+        // std::cout << "Planet with coordinates (" << xy.x << " , " << xy.y << ") has exploded." << std::endl;
         exploded = 1;
         return;
     }
 
     void gotoNextPosition()
     {
+        if(exploded)return;
         const int dt = 1;
         long double vx = xy.x + dt * velocityX;
         long double vy = xy.y + dt * velocityY;
@@ -120,7 +122,7 @@ public:
 
     CoordinatesXY calculate_centerMass(Square *sq1, Square *sq2)
     {
-        std::cout<<"center mass\n";
+        // std::cout<<"center mass\n";
         long double x = 0, y = 0;
         long double mass = sq1->mass + sq2->mass;
         // std::cout<<"VRHKE MAZA" << mass<< "\n";
@@ -130,7 +132,7 @@ public:
         }
         x = (sq1->centerMass.x * sq1->mass + sq2->centerMass.x * sq2->mass) / mass;
         y = (sq1->centerMass.y * sq1->mass + sq2->centerMass.y * sq2->mass) / mass;
-        std::cout<<"center mass CALCULATED\n";
+        // std::cout<<"center mass CALCULATED\n";
 
         return CoordinatesXY(x, y);
     }
@@ -146,9 +148,9 @@ public:
     {
         mass = 0;
         centerMass = xy;
-        std::cout << "Square: (" << xy.x << " , " << xy.y << ")\n";
+        // std::cout << "Square: (" << xy.x << " , " << xy.y << ")\n";
 
-        std::cout << "Total planet indexes: " << planetIndexes.size() << "\n";
+        // std::cout << "Total planet indexes: " << planetIndexes.size() << "\n";
         if (planetIndexes.size() < 2)
         {
             // assign the planet the square it belongs, aka the leaf
@@ -167,7 +169,7 @@ public:
         seXY = CoordinatesXY( size / 4.0 + xy.x, -size / 4.0 + xy.y);
         for (long long int index : planetIndexes)
         {
-            std::cout << "Planmet index (" << (*planets)[index].getX() << " , " << (*planets)[index].getY() << ") Square: (" << xy.x << " , " << xy.y << ")\n";
+            // std::cout << "Planmet index (" << (*planets)[index].getX() << " , " << (*planets)[index].getY() << ") Square: (" << xy.x << " , " << xy.y << ")\n";
             
             if      (planet_in_square((*planets)[index].getXY(), nwXY, size / 2.0))
             {
@@ -181,9 +183,13 @@ public:
             {
                 swPlanets.push_back(index);
             }
-            else
+            else if(planet_in_square((*planets)[index].getXY(), seXY, size / 2.0))
             {
                 sePlanets.push_back(index);
+            }else{
+                // planet is out the universe
+                // ignore it
+                ((*planets)[index].initiateExplostion());
             }
         }
 
@@ -204,8 +210,8 @@ public:
         centerMass = this->calculate_centerMass(this, se);
         mass += se->mass;
 
-        std::cout << "Center mass for Square: "
-                  << ": (" << centerMass.x << " , " << centerMass.y << ") " << std::endl;
+        // std::cout << "Center mass for Square: "
+                //   << ": (" << centerMass.x << " , " << centerMass.y << ") " << std::endl;
         return;
     }
 
@@ -216,19 +222,27 @@ public:
         {
             planetIndexes.push_back(i);
         }
-        std::cout << "Total planets: " << planetIndexes.size() << "\n";
-        std::cout << "Size: " << this->size << "\n";
+        nw=NULL;
+        ne=NULL;
+        se=NULL;
+        sw=NULL;
+        // std::cout << "Total planets: " << planetIndexes.size() << "\n";
+        // std::cout << "Size: " << this->size << "\n";
         buildTree();
     }
     Square(std::vector<Planet> *planets, CoordinatesXY xy, long double size, std::vector<long long int> *planetIndexes, long long int level, Square *parent)
         : planets(planets), xy(xy), size(size), level(level), parent(parent), centerMass(CoordinatesXY(0, 0)), mass(0)
     {
+        nw=NULL;
+        ne=NULL;
+        se=NULL;
+        sw=NULL;
         for (int i = 0; i < planetIndexes->size(); i++)
         {
             // std::cout<<"mpainw\n";
             this->planetIndexes.push_back((*planetIndexes)[i]);
         }
-        std::cout << "Square (" << xy.x << " , " << xy.y << ") with size: " << size << " and level: " << level << " Planets: " << this->planetIndexes.size() << "\n";
+        // std::cout << "Square (" << xy.x << " , " << xy.y << ") with size: " << size << " and level: " << level << " Planets: " << this->planetIndexes.size() << "\n";
         buildTree();
     }
 };
