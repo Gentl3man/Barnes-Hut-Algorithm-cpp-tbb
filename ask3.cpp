@@ -33,12 +33,12 @@ bool node_contains_planet(Planet planet, Square *root)
 
 NetForce netForce(Planet planet, Square *node)
 {
-    if (!node)
+    if (!node || planet.hasExploed())
         return NetForce(0, 0); // node null, no children aka no gravity
-    long double distance = calculate_distance(planet.getXY(), node->xy);
+    long double distance = calculate_distance(planet.getXY(), node->centerMass);
     long double gravity;
     NetForce ret = NetForce(0, 0);
-    bool isSufficientlyFar = distance > planet.getSquare()->size / 2.0; // tetragwno ara pleura size/4
+    bool isSufficientlyFar = distance > planet.getSquare()->size / 2.0; 
     bool hasPlanet = node_contains_planet(planet, node);
     if (isSufficientlyFar && !hasPlanet)
     {
